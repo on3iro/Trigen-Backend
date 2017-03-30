@@ -5,10 +5,13 @@ app = Flask(__name__)
 api = Api(app)
 
 USERS = {
-    'user1': {'unique hash': '3h4ncj9'},
-    'user2': {'unique hash': 's8doh3l'},
-    'user3': {'unique hash': 'M8mHq1l'},
+    '1': {'unique hash': '3h4ncj9', 'email': 'user1@simplel.de'},
+    '2': {'unique hash': 's8doh3l', 'email': 'user2@simplel.de'},
+    '3': {'unique hash': 'M8mHq1l', 'email': 'user3@simplel.de'},
 }
+
+parser = reqparse.RequestParser()
+parser.add_argument('users')
 
 
 def abort_if_user_doesnt_exist(user_id):
