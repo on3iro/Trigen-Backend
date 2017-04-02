@@ -39,9 +39,26 @@ class User(Resource):
 
 class Account(Resource):
     def get(self, user_id):
-        # dbacc = account.Account.query.filter_by(id=
-        # return jsonify(dbacc)
-        pass
+        uarels = users_accounts.UsersAccounts.query.filter_by(
+            userid=int(user_id))
+
+        dbaccs = {}
+        for uarel in uarels:
+            dbacc = account.Account.query.filter_by(
+                id=int(uarel.accountid)).first()
+            dbaccs[uarel.accountid] = dbacc
+
+        retaccs = {}
+        for accid, acc in dbaccs.items():
+            retacc = {
+                'userid': user_id,
+                'account_id': acc.id,
+                'username': acc.username,
+                'domain': acc.domain
+            }
+            retaccs[acc.id] = retacc
+
+        return retaccs
 
     def post(self, user_id):
         args = parser.parse_args()
