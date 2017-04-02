@@ -1,5 +1,4 @@
-from flask import jsonify
-from flask_restful import reqparse, abort, Resource, Api
+from flask_restful import reqparse, Resource, Api
 from app import app
 from app import db
 from models import user, account, users_accounts
@@ -12,6 +11,7 @@ parser.add_argument('email')
 parser.add_argument('password')
 parser.add_argument('username')
 parser.add_argument('domain')
+parser.add_argument('newpassword')
 
 
 class User(Resource):
@@ -35,6 +35,25 @@ class User(Resource):
         db.session.add(new_user)
         db.session.commit()
         return retuser
+
+    def delete(self, user_id):
+        # TODO: implement
+        pass
+
+    def put(self, user_id):
+        dbuser = user.User.query.filter_by(id=int(user_id)).first()
+        args = parser.parse_args()
+        # TODO: Check old password
+
+        dbuser.email = args['email']
+        dbuser.password = args['newpassword']
+
+        db.session.add(dbuser)
+        db.session.commit()
+        return {
+            'id': dbuser.id,
+            'email': dbuser.email,
+            'password': dbuser.password}
 
 
 class Account(Resource):
