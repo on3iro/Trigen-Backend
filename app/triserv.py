@@ -1,30 +1,70 @@
-from flask import Flask
+from flask import jsonify
 from flask_restful import reqparse, abort, Resource, Api
+from app import app
+from app import db
+from models import user, account, users_accounts
 
-app = Flask(__name__)
 api = Api(app)
 
-USERS = {
-    '1': {'unique hash': '3h4ncj9', 'email': 'user1@simplel.de'},
-    '2': {'unique hash': 's8doh3l', 'email': 'user2@simplel.de'},
-    '3': {'unique hash': 'M8mHq1l', 'email': 'user3@simplel.de'},
-}
 
 parser = reqparse.RequestParser()
-parser.add_argument('users')
-
-
-def abort_if_user_doesnt_exist(user_id):
-    if user_id not in USERS:
-        abort(404, message="User {} does not exist".format(user_id))
+parser.add_argument('email')
+parser.add_argument('password')
+parser.add_argument('username')
+parser.add_argument('domain')
 
 
 class User(Resource):
     def get(self, user_id):
-        abort_if_user_doesnt_exist(user_id)
-        return USERS[user_id]
+        dbuser = user.User.query.filter_by(id=int(user_id)).first()
 
-api.add_resource(User, '/users/<user_id>')
+        retuser = {
+            'email': dbuser.email,
+            'hash': dbuser.userhash,
+            'slots': dbuser.slots
+        }
+        return retuser
+
+    def post(self):
+        args = parser.parse_args()
+        new_user = user.User(args['email'], '1234')
+        retuser = {
+            'email': new_user.email,
+            'password': new_user.password
+        }
+        db.session.add(new_user)
+        db.session.commit()
+        return retuser
+
+
+class Account(Resource):
+    def get(self, user_id):
+        # dbacc = account.Account.query.filter_by(id=
+        # return jsonify(dbacc)
+        pass
+
+    def post(self, user_id):
+        args = parser.parse_args()
+        new_account = account.Account(args['username'], args['domain'])
+
+        db.session.add(new_account)
+        db.session.commit()
+
+        new_ua_rel = users_accounts.UsersAccounts(user_id, new_account.id)
+        db.session.add(new_ua_rel)
+        print(new_account.id)
+        db.session.commit()
+
+        retacc = {
+            'userid': user_id,
+            'account_id': new_account.id,
+            'username': new_account.username,
+            'domain': new_account.domain
+        }
+        return retacc
+
+api.add_resource(User, '/users/<user_id>', '/users')
+api.add_resource(Account, '/users/<user_id>/accounts')
 
 # TODO: disable in production
 if __name__ == '__main__':
