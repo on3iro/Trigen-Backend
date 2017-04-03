@@ -1,11 +1,11 @@
 from __future__ import print_function
 from flask_restful import reqparse, Resource, Api
-from flask import jsonify
+from flask import jsonify, abort
 from app import app
 from app import db
 from models import user, account, users_accounts
 from werkzeug.security import safe_str_cmp
-from flask_jwt import JWT, jwt_required
+from flask_jwt import JWT, jwt_required, current_identity
 import sys
 
 api = Api(app)
@@ -19,10 +19,18 @@ parser.add_argument('domain')
 parser.add_argument('newpassword')
 
 
+def abort_if_not_allowed(user_id, current_id):
+    if (int(user_id) != int(current_id)):
+        abort(401)
+
+
 class User(Resource):
     @jwt_required()
     def get(self, user_id):
+        abort_if_not_allowed(user_id, current_identity.id)
+
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
+        print(current_identity.id, file=sys.stderr)
 
         retuser = {
             'email': dbuser.email,
@@ -137,8 +145,17 @@ jwt = JWT(app, authenticate, identity)
 
 @jwt.auth_response_handler
 def custom_auth_response_callback(access_token, identity):
-    del identity
-    return jsonify({'token': 'JWT ' + access_token.decode('utf-8')})
+    print(identity.email, file=sys.stderr)
+    retjson = {
+        'token': 'JWT ' + access_token.decode('utf-8'),
+        'user': {
+            'id': identity.id,
+            'email': identity.email,
+            'maxAccounts': identity.slots,
+        }
+    }
+
+    return jsonify(retjson)
 
 
 # TODO: disable in production
