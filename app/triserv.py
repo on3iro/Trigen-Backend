@@ -90,6 +90,8 @@ class User(Resource):
 class Account(Resource):
     @jwt_required()
     def get(self, user_id):
+        abort_if_not_allowed(user_id)
+
         uarels = users_accounts.UsersAccounts.query.filter_by(
             userid=int(user_id))
 
