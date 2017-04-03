@@ -7,6 +7,7 @@ from models import user, account, users_accounts
 from werkzeug.security import safe_str_cmp
 from flask_jwt import JWT, jwt_required, current_identity
 import sys
+import random
 
 api = Api(app)
 
@@ -26,6 +27,10 @@ def abort_if_not_allowed(user_id):
 
 
 class User(Resource):
+    def generate_user_hash(self):
+        uhash = random.getrandbits(128)
+        return "%032x" % uhash
+
     def get(self, user_id):
         abort_if_not_allowed(user_id)
 
@@ -40,13 +45,15 @@ class User(Resource):
 
     def post(self):
         args = parser.parse_args()
-        new_user = user.User(args['email'], '1234')
-        retuser = {
-            'email': new_user.email,
-            'password': new_user.password
-        }
+        new_user = user.User(args['email'], args['password'])
+        new_user.slots = 5  # TODO: do it the right way
+        new_user.userhash = self.generate_user_hash()
         db.session.add(new_user)
         db.session.commit()
+        retuser = {
+            'id': new_user.id,
+            'email': new_user.email,
+        }
         return retuser
 
     def delete(self, user_id):
@@ -113,7 +120,6 @@ class Account(Resource):
 
         new_ua_rel = users_accounts.UsersAccounts(user_id, new_account.id)
         db.session.add(new_ua_rel)
-        print(new_account.id)
         db.session.commit()
 
         retacc = {
