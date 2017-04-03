@@ -1,7 +1,11 @@
+from __future__ import print_function
 from flask_restful import reqparse, Resource, Api
 from app import app
 from app import db
 from models import user, account, users_accounts
+from werkzeug.security import safe_str_cmp
+from flask_jwt import JWT, jwt_required, current_identity
+import sys
 
 api = Api(app)
 
@@ -15,13 +19,14 @@ parser.add_argument('newpassword')
 
 
 class User(Resource):
+    @jwt_required()
     def get(self, user_id):
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
 
         retuser = {
             'email': dbuser.email,
             'hash': dbuser.userhash,
-            'slots': dbuser.slots
+            'slots': dbuser.slots,
         }
         return retuser
 
@@ -57,6 +62,7 @@ class User(Resource):
 
 
 class Account(Resource):
+    @jwt_required()
     def get(self, user_id):
         uarels = users_accounts.UsersAccounts.query.filter_by(
             userid=int(user_id))
@@ -99,8 +105,32 @@ class Account(Resource):
         }
         return retacc
 
+    def put(self, user_id, acc_id):
+        # TODO: stuff
+        return {'message': 'not yet implemented'}
+
+    def delete(self, user_id, acc_id):
+        # TODO: kill it with fire
+        return {'message': 'not yet implemented'}
+
 api.add_resource(User, '/users/<user_id>', '/users')
-api.add_resource(Account, '/users/<user_id>/accounts')
+api.add_resource(Account, '/users/<user_id>/accounts',
+                 '/users/<user_id>/accounts/<acc_id>')
+
+
+def authenticate(username, password):
+    dbuser = user.User.query.filter_by(email=username).first()
+    if dbuser and safe_str_cmp(dbuser.password,
+                               password):
+        print('==== pw match ====', file=sys.stderr)
+        return dbuser
+
+
+def identity(payload):
+    user_id = payload['identity']
+    return user.User.query.filter_by(id=int(user_id)).first()
+
+jwt = JWT(app, authenticate, identity)
 
 # TODO: disable in production
 if __name__ == '__main__':
