@@ -151,9 +151,17 @@ class Account(Resource):
 
         return {'domain': dbacc.domain, 'username': dbacc.username}
 
+    @jwt_required()
     def delete(self, user_id, acc_id):
-        # TODO: kill it with fire
-        return {'message': 'not yet implemented'}
+        # TODO: make sure the users_accounts table will be updated as well
+        abort_if_not_allowed(user_id)
+        # TODO: test if acc_id belongs to user_id
+
+        dbacc = account.Account.query.filter_by(id=int(acc_id)).first()
+        db.session.delete(dbacc)
+        db.session.commit()
+
+        return {'account_id': acc_id, 'message': 'deleted'}
 
 api.add_resource(User, '/users/<user_id>', '/users')
 api.add_resource(Account, '/users/<user_id>/accounts',
