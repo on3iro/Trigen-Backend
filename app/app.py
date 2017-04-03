@@ -15,7 +15,7 @@ app.config.from_object('config')
 # Define the database object which is imported
 # by modules
 db = SQLAlchemy(app)
-from models import base, user, account, users_accounts
+from models import base, user, account
 
 # Build the database
 db.create_all()

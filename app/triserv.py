@@ -3,7 +3,7 @@ from flask_restful import reqparse, Resource, Api
 from flask import jsonify, abort
 from app import app
 from app import db
-from models import user, account, users_accounts
+from models import user, account
 from werkzeug.security import safe_str_cmp
 from flask_jwt import JWT, jwt_required, current_identity
 import sys
@@ -31,6 +31,7 @@ class User(Resource):
         uhash = random.getrandbits(128)
         return "%032x" % uhash
 
+    @jwt_required()
     def get(self, user_id):
         abort_if_not_allowed(user_id)
 
@@ -56,10 +57,12 @@ class User(Resource):
         }
         return retuser
 
+    @jwt_required()
     def delete(self, user_id):
         # TODO: implement
         pass
 
+    @jwt_required()
     def put(self, user_id):
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
         args = parser.parse_args()
@@ -76,6 +79,7 @@ class User(Resource):
             'password': dbuser.password}
 
     class UserHash(Resource):
+        @jwt_required()
         def get(self, user_id):
             abort_if_not_allowed(user_id)
             dbuser = user.User.query.filter_by(id=int(user_id)).first()
@@ -93,39 +97,34 @@ class Account(Resource):
         abort_if_not_allowed(user_id)
 
         # TODO: getting all accounts for a user should be in usermodel
-        uarels = users_accounts.UsersAccounts.query.filter_by(
-            userid=int(user_id))
+        dbuser = user.User.query.filter_by(id=int(user_id)).first()
+        dbaccs = dbuser.accounts
 
-        dbaccs = {}
-        for uarel in uarels:
-            dbacc = account.Account.query.filter_by(
-                id=int(uarel.accountid)).first()
-            dbaccs[uarel.accountid] = dbacc
-
-        retaccs = {}
-        for accid, acc in dbaccs.items():
+        retaccs = []
+        for acc in dbaccs:
             retacc = {
-                'userid': user_id,
-                'account_id': acc.id,
+                'id': acc.id,
                 'username': acc.username,
                 'domain': acc.domain
             }
-            retaccs[acc.id] = retacc
+            retaccs.append(retacc)
 
         return retaccs
 
     @jwt_required()
     def post(self, user_id):
         abort_if_not_allowed(user_id)
-        # TODO: check available slots
         args = parser.parse_args()
+
+        dbuser = user.User.query.filter_by(id=int(user_id)).first()
+        if (dbuser.slots <= len(dbuser.accounts)):
+            return {'message': 'No more slots available'}
+
         new_account = account.Account(args['username'], args['domain'])
 
-        db.session.add(new_account)
-        db.session.commit()
+        dbuser.accounts.append(new_account)
 
-        new_ua_rel = users_accounts.UsersAccounts(user_id, new_account.id)
-        db.session.add(new_ua_rel)
+        db.session.add(dbuser)
         db.session.commit()
 
         retacc = {
@@ -153,7 +152,6 @@ class Account(Resource):
 
     @jwt_required()
     def delete(self, user_id, acc_id):
-        # TODO: make sure the users_accounts table will be updated as well
         abort_if_not_allowed(user_id)
         # TODO: test if acc_id belongs to user_id
 
