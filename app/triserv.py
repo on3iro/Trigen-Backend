@@ -136,9 +136,20 @@ class Account(Resource):
         }
         return retacc
 
+    @jwt_required()
     def put(self, user_id, acc_id):
-        # TODO: stuff
-        return {'message': 'not yet implemented'}
+        abort_if_not_allowed(user_id)
+        args = parser.parse_args()
+        # TODO: test if acc_id belongs to user_id
+
+        dbacc = account.Account.query.filter_by(id=int(acc_id)).first()
+        dbacc.username = args['username']
+        dbacc.domain = args['domain']
+
+        db.session.add(dbacc)
+        db.session.commit()
+
+        return {'domain': dbacc.domain, 'username': dbacc.username}
 
     def delete(self, user_id, acc_id):
         # TODO: kill it with fire
