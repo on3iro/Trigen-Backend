@@ -92,6 +92,7 @@ class Account(Resource):
     def get(self, user_id):
         abort_if_not_allowed(user_id)
 
+        # TODO: getting all accounts for a user should be in usermodel
         uarels = users_accounts.UsersAccounts.query.filter_by(
             userid=int(user_id))
 
@@ -113,7 +114,10 @@ class Account(Resource):
 
         return retaccs
 
+    @jwt_required()
     def post(self, user_id):
+        abort_if_not_allowed(user_id)
+        # TODO: check available slots
         args = parser.parse_args()
         new_account = account.Account(args['username'], args['domain'])
 
