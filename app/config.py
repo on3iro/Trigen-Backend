@@ -28,3 +28,7 @@ CSRF_SESSION_KEY = "ohchao3E"
 
 # Secret key for signing cookies
 SECRET_KEY = "sha3Xi4A"
+
+# JWT settings
+JWT_AUTH_URL_RULE = "/login"
+JWT_AUTH_USERNAME_KEY = "email"

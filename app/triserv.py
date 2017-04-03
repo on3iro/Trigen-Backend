@@ -1,10 +1,11 @@
 from __future__ import print_function
 from flask_restful import reqparse, Resource, Api
+from flask import jsonify
 from app import app
 from app import db
 from models import user, account, users_accounts
 from werkzeug.security import safe_str_cmp
-from flask_jwt import JWT, jwt_required, current_identity
+from flask_jwt import JWT, jwt_required
 import sys
 
 api = Api(app)
@@ -130,7 +131,15 @@ def identity(payload):
     user_id = payload['identity']
     return user.User.query.filter_by(id=int(user_id)).first()
 
+
 jwt = JWT(app, authenticate, identity)
+
+
+@jwt.auth_response_handler
+def custom_auth_response_callback(access_token, identity):
+    del identity
+    return jsonify({'token': 'JWT ' + access_token.decode('utf-8')})
+
 
 # TODO: disable in production
 if __name__ == '__main__':
