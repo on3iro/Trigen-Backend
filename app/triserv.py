@@ -19,18 +19,17 @@ parser.add_argument('domain')
 parser.add_argument('newpassword')
 
 
-def abort_if_not_allowed(user_id, current_id):
-    if (int(user_id) != int(current_id)):
+@jwt_required()
+def abort_if_not_allowed(user_id):
+    if (int(user_id) != int(current_identity.id)):
         abort(401)
 
 
 class User(Resource):
-    @jwt_required()
     def get(self, user_id):
-        abort_if_not_allowed(user_id, current_identity.id)
+        abort_if_not_allowed(user_id)
 
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
-        print(current_identity.id, file=sys.stderr)
 
         retuser = {
             'email': dbuser.email,
@@ -68,6 +67,17 @@ class User(Resource):
             'id': dbuser.id,
             'email': dbuser.email,
             'password': dbuser.password}
+
+    class UserHash(Resource):
+        def get(self, user_id):
+            abort_if_not_allowed(user_id)
+            dbuser = user.User.query.filter_by(id=int(user_id)).first()
+            retjson = {
+                'hash': dbuser.userhash
+            }
+            return retjson
+
+    api.add_resource(UserHash, '/users/<user_id>/hash', endpoint='hash')
 
 
 class Account(Resource):
