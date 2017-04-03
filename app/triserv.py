@@ -1,6 +1,7 @@
 from __future__ import print_function
 from flask_restful import reqparse, Resource, Api
 from flask import jsonify, abort
+from flask.ext.bcrypt import Bcrypt
 from app import app
 from app import db
 from models import user, account
@@ -10,6 +11,7 @@ import sys
 import random
 
 api = Api(app)
+bcrypt = Bcrypt(app)
 
 
 parser = reqparse.RequestParser()
@@ -46,7 +48,10 @@ class User(Resource):
 
     def post(self):
         args = parser.parse_args()
-        new_user = user.User(args['email'], args['password'])
+        pw_hash = bcrypt.generate_password_hash(
+            args['password']).decode('utf-8')
+
+        new_user = user.User(args['email'], pw_hash)
         new_user.slots = 5  # TODO: do it the right way
         new_user.userhash = self.generate_user_hash()
         db.session.add(new_user)
@@ -64,6 +69,8 @@ class User(Resource):
 
     @jwt_required()
     def put(self, user_id):
+        if 1:
+            return {'message': 'Action not supported'}
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
         args = parser.parse_args()
         # TODO: Check old password
@@ -168,8 +175,8 @@ api.add_resource(Account, '/users/<user_id>/accounts',
 
 def authenticate(username, password):
     dbuser = user.User.query.filter_by(email=username).first()
-    if dbuser and safe_str_cmp(dbuser.password,
-                               password):
+    if dbuser and bcrypt.check_password_hash(dbuser.password,
+                                             password):
         print('==== pw match ====', file=sys.stderr)
         return dbuser
 
