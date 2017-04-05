@@ -5,10 +5,10 @@ from flask.ext.bcrypt import Bcrypt
 from app import app
 from app import db
 from models import user, account
+from werkzeug.security import safe_str_cmp
 from flask_jwt import JWT, jwt_required, current_identity
 import sys
 import random
-from utils.access_control import crossdomain
 
 api = Api(app)
 bcrypt = Bcrypt(app)
@@ -34,7 +34,6 @@ class User(Resource):
         return "%032x" % uhash
 
     @jwt_required()
-    @crossdomain(origin='*')
     def get(self, user_id):
         abort_if_not_allowed(user_id)
 
@@ -47,7 +46,6 @@ class User(Resource):
         }
         return retuser
 
-    @crossdomain(origin='*')
     def post(self):
         args = parser.parse_args()
         pw_hash = bcrypt.generate_password_hash(
@@ -65,13 +63,11 @@ class User(Resource):
         return retuser
 
     @jwt_required()
-    @crossdomain(origin='*')
     def delete(self, user_id):
         # TODO: implement
         pass
 
     @jwt_required()
-    @crossdomain(origin='*')
     def put(self, user_id):
         if 1:
             return {'message': 'Action not supported'}
@@ -91,7 +87,6 @@ class User(Resource):
 
     class UserHash(Resource):
         @jwt_required()
-        @crossdomain(origin='*')
         def get(self, user_id):
             abort_if_not_allowed(user_id)
             dbuser = user.User.query.filter_by(id=int(user_id)).first()
@@ -105,7 +100,6 @@ class User(Resource):
 
 class Account(Resource):
     @jwt_required()
-    @crossdomain(origin='*')
     def get(self, user_id):
         abort_if_not_allowed(user_id)
 
@@ -125,7 +119,6 @@ class Account(Resource):
         return retaccs
 
     @jwt_required()
-    @crossdomain(origin='*')
     def post(self, user_id):
         abort_if_not_allowed(user_id)
         args = parser.parse_args()
@@ -150,7 +143,6 @@ class Account(Resource):
         return retacc
 
     @jwt_required()
-    @crossdomain(origin='*')
     def put(self, user_id, acc_id):
         abort_if_not_allowed(user_id)
         args = parser.parse_args()
@@ -166,7 +158,6 @@ class Account(Resource):
         return {'domain': dbacc.domain, 'username': dbacc.username}
 
     @jwt_required()
-    @crossdomain(origin='*')
     def delete(self, user_id, acc_id):
         abort_if_not_allowed(user_id)
         # TODO: test if acc_id belongs to user_id
