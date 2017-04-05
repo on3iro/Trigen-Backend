@@ -116,7 +116,7 @@ class Account(Resource):
             }
             retaccs.append(retacc)
 
-        return retaccs
+        return jsonify(retaccs)
 
     @jwt_required()
     def post(self, user_id):
