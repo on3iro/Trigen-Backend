@@ -9,7 +9,6 @@ from flask_jwt import JWT, jwt_required, current_identity
 import sys
 import random
 
-sys.setdefaultencoding('utf8')
 api = Api(app)
 bcrypt = Bcrypt(app)
 
