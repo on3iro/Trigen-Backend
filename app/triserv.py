@@ -5,11 +5,11 @@ from flask.ext.bcrypt import Bcrypt
 from app import app
 from app import db
 from models import user, account
-from werkzeug.security import safe_str_cmp
 from flask_jwt import JWT, jwt_required, current_identity
 import sys
 import random
 
+sys.setdefaultencoding('utf8')
 api = Api(app)
 bcrypt = Bcrypt(app)
 
@@ -95,7 +95,24 @@ class User(Resource):
             }
             return retjson
 
+    class Slots(Resource):
+        @jwt_required()
+        def post(self, user_id):
+            abort_if_not_allowed(user_id)
+            args = parser.parse_args()
+
+            dbuser = user.User.query.filter_by(id=int(user_id)).first()
+            dbuser.slots = args['additionalSlots']
+            db.session.add(dbuser)
+            db.session.commit()
+
+            retjson = {
+                'message': 'Slots wurden erweitert',
+            }
+            return retjson
+
     api.add_resource(UserHash, '/users/<user_id>/hash', endpoint='hash')
+    api.add_resource(Slots, '/users/<user_id>/slots/add')
 
 
 class Account(Resource):
