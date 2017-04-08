@@ -1,6 +1,6 @@
 from __future__ import print_function
-from flask_restful import reqparse, Resource, Api
-from flask import jsonify, abort
+from flask_restful import reqparse, Resource, Api, abort
+from flask import jsonify
 from flask.ext.bcrypt import Bcrypt
 from app import app
 from app import db
@@ -8,6 +8,7 @@ from models import user, account
 from flask_jwt import JWT, jwt_required, current_identity
 import sys
 import random
+import sqlalchemy.exc
 
 api = Api(app)
 bcrypt = Bcrypt(app)
@@ -24,7 +25,7 @@ parser.add_argument('newpassword')
 @jwt_required()
 def abort_if_not_allowed(user_id):
     if (int(user_id) != int(current_identity.id)):
-        abort(401)
+        abort(401, message='Keine Berechtigung')
 
 
 class User(Resource):
@@ -36,7 +37,10 @@ class User(Resource):
     def get(self, user_id):
         abort_if_not_allowed(user_id)
 
-        dbuser = user.User.query.filter_by(id=int(user_id)).first()
+        try:
+            dbuser = user.User.query.filter_by(id=int(user_id)).first()
+        except sqlalchemy.exc.SQLAlchemyError:
+            abort(404, message='Nutzer konnte nicht gefunden werden.')
 
         retuser = {
             'email': dbuser.email,
@@ -53,8 +57,13 @@ class User(Resource):
         new_user = user.User(args['email'], pw_hash)
         new_user.slots = 5  # TODO: do it the right way
         new_user.userhash = self.generate_user_hash()
-        db.session.add(new_user)
-        db.session.commit()
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            abort(422, message='Diese E-Mail ist bereits registriert')
+
         retuser = {
             'id': new_user.id,
             'email': new_user.email,
@@ -69,7 +78,8 @@ class User(Resource):
     @jwt_required()
     def put(self, user_id):
         if 1:
-            return {'message': 'Action not supported'}
+            abort(405, message='Action not supported')
+
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
         args = parser.parse_args()
         # TODO: Check old password
@@ -89,6 +99,8 @@ class User(Resource):
         def get(self, user_id):
             abort_if_not_allowed(user_id)
             dbuser = user.User.query.filter_by(id=int(user_id)).first()
+            if (not dbuser):
+                abort(404, message='Nutzerhash konnte nicht gefunden werden')
             retjson = {
                 'hash': dbuser.userhash
             }
@@ -96,22 +108,26 @@ class User(Resource):
 
     class Slots(Resource):
         @jwt_required()
-        def post(self, user_id):
+        def post(self, user_id, amount):
             abort_if_not_allowed(user_id)
-            args = parser.parse_args()
 
             dbuser = user.User.query.filter_by(id=int(user_id)).first()
-            dbuser.slots = args['additionalSlots']
-            db.session.add(dbuser)
-            db.session.commit()
+            dbuser.slots += int(amount)
+
+            try:
+                db.session.add(dbuser)
+                db.session.commit()
+            except:
+                abort(418, 'Uuups, das hat nicht funktioniert')
 
             retjson = {
                 'message': 'Slots wurden erweitert',
+                'maxAccounts': dbuser.slots
             }
             return retjson
 
     api.add_resource(UserHash, '/users/<user_id>/hash', endpoint='hash')
-    api.add_resource(Slots, '/users/<user_id>/slots/add')
+    api.add_resource(Slots, '/users/<user_id>/slots/add/<amount>')
 
 
 class Account(Resource):
@@ -141,14 +157,17 @@ class Account(Resource):
 
         dbuser = user.User.query.filter_by(id=int(user_id)).first()
         if (dbuser.slots <= len(dbuser.accounts)):
-            return {'message': 'No more slots available'}
+            abort(400, message='Maximale Slotanzahl erreicht')
 
         new_account = account.Account(args['username'], args['domain'])
 
         dbuser.accounts.append(new_account)
 
-        db.session.add(dbuser)
-        db.session.commit()
+        try:
+            db.session.add(dbuser)
+            db.session.commit()
+        except sqlalchemy.exc.IntegretyError:
+            abort(422, message='Account existiert bereits')
 
         retacc = {
             'userid': user_id,
@@ -165,11 +184,17 @@ class Account(Resource):
         # TODO: test if acc_id belongs to user_id
 
         dbacc = account.Account.query.filter_by(id=int(acc_id)).first()
+        if (not dbacc):
+            abort(404, message='Account nicht gefunden')
+
         dbacc.username = args['username']
         dbacc.domain = args['domain']
 
-        db.session.add(dbacc)
-        db.session.commit()
+        try:
+            db.session.add(dbacc)
+            db.session.commit()
+        except:
+            abort(422, message='Eintrag konnte nicht bearbeitet werden')
 
         return {'domain': dbacc.domain, 'username': dbacc.username}
 
@@ -179,8 +204,14 @@ class Account(Resource):
         # TODO: test if acc_id belongs to user_id
 
         dbacc = account.Account.query.filter_by(id=int(acc_id)).first()
-        db.session.delete(dbacc)
-        db.session.commit()
+        if (not dbacc):
+            abort(404, message='Account nicht gefunden')
+
+        try:
+            db.session.delete(dbacc)
+            db.session.commit()
+        except:
+            abort(400, message='Account konnte nicht entfernt werden')
 
         return {'account_id': acc_id, 'message': 'deleted'}
 
@@ -193,12 +224,15 @@ def authenticate(username, password):
     dbuser = user.User.query.filter_by(email=username).first()
     if dbuser and bcrypt.check_password_hash(dbuser.password,
                                              password):
-        print('==== pw match ====', file=sys.stderr)
         return dbuser
+    abort(401, message='Passwort inkorrekt')
 
 
 def identity(payload):
     user_id = payload['identity']
+    dbuser = user.User.query.filter_by(id=int(user_id)).first()
+    if (not dbuser):
+        abort(404, message='Nutzer existiert nicht')
     return user.User.query.filter_by(id=int(user_id)).first()
 
 
